@@ -1,0 +1,9 @@
+name: glideraudio
+channels:
+  - anaconda
+  - conda-forge
+dependencies:
+  - pandas
+  - numpy
+  - xarray
+  - netcdf4
