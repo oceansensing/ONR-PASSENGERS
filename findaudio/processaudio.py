@@ -1,13 +1,14 @@
 import findaudioparams as faud
 
-gli_data = '/Users/jack/Downloads/electa-20221105T1025-trajectory-raw-delayed_0d79_ec66_3af8.nc'
-sci_data = '/Users/jack/Downloads/electa-20221105T1025-profile-sci-delayed_2da9_5908_0ae3.nc'
+datetime_range = ['20221105','205000','20221108','221300']
 conditions = ['sci_water_temp:>:20','sci_water_temp:<:30']
 time_name = 'time'
-outdir_path = '/Users/jack/Documents/findaudio/output_files'
 file_name = 'electa_20221105T20500-20221108T221300_20sci_water_temp30'
+
+gli_data = '/Users/jack/Downloads/electa-20221105T1025-trajectory-raw-delayed_0d79_ec66_3af8.nc'
+sci_data = '/Users/jack/Downloads/electa-20221105T1025-profile-sci-delayed_2da9_5908_0ae3.nc'
 audiodir_path = '/Users/jack/gliderData/electa-20221105-passengers-post/Loggerhead'
-datetime_range = ['20221105','205000','20221108','221300']
+outdir_path = '/Users/jack/Documents/findaudio/output_files'
 
 datafull = faud.prepare_data(gli_data,sci_data,conditions)
 
