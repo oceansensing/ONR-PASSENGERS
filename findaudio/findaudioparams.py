@@ -57,8 +57,8 @@ def prepare_data(gli_data,sci_data,conditions):
 
     #use bfill and ffill to fill in missing sensor values with the last value before the empty space
     for sensor in sensor_names:
-        datafull[sensor] = datafull[sensor].fillna(method='bfill')
         datafull[sensor] = datafull[sensor].fillna(method='ffill')
+        datafull[sensor] = datafull[sensor].fillna(method='bfill')
 
     datafull = datafull.reset_index()
 
