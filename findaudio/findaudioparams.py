@@ -248,7 +248,9 @@ def find_sensor_audio_time_txt(data,conditions, start_indices, end_indices, time
 
             file.write(f'Condition met instance {instance_ctr}\n')
 
-            if start_index == 0 or start_index == -1:
+            if start_index == -1 and end_index == -1:
+                file.write(f'Condition was never met within given range\n')
+            elif start_index == 0 or (start_index == -1 and end_index != -1):
                 file.write(f'Condition met before start time\n')
             else:    
                 gli_datetime, wavfile, timestamp_start = find_on_values(data,start_index,time_name, audiodir_path)
@@ -257,9 +259,9 @@ def find_sensor_audio_time_txt(data,conditions, start_indices, end_indices, time
                 file.write(f'Condition met in audio file: {wavfile[0]}\n')
                 file.write(f'Start timestamp in audio file: {timestamp_start}\n')
 
-            if end_index == -1:
+            if end_index == -1 and start_index != -1:
                 file.write(f'Condition unmet after end time\n')
-            else:
+            elif end_index != -1:
                 gli_datetime2, nxtwavfile, timestamp_end = find_off_values(data,end_index,time_name, audiodir_path)
                     
                 file.write(f'Condition unmet: {gli_datetime2} UTC \n')
@@ -300,7 +302,13 @@ def find_sensor_audio_time_csv(data,conditions, start_indices, end_indices, time
 
             instance_ctr+=1
             print(f"Working on condition met instance {instance_ctr}")
-            if start_index == 0 or start_index == -1:
+
+            if start_index == -1 and end_index == -1:
+                print(f'Condition was never met within given range')
+                csv_data.append(np.nan)
+                csv_data.append(np.nan)
+                csv_data.append(np.nan)
+            elif start_index == 0 or start_index == -1:
                 print(f"Condition met instance {instance_ctr} was before start time")
                 csv_data.append(np.nan)
                 csv_data.append(np.nan)
@@ -311,11 +319,13 @@ def find_sensor_audio_time_csv(data,conditions, start_indices, end_indices, time
                 csv_data.append(wavfile[0])
                 csv_data.append(timestamp_start)
 
-            if end_index == -1:
-                print(f"Condition met instance {instance_ctr} was before start time")
+            if end_index == -1 and start_index != -1:
+                print(f"Condition unmet instance {instance_ctr} was after end time")
                 csv_data.append(np.nan)
                 csv_data.append(np.nan)
                 csv_data.append(np.nan)
+            elif end_index == -1 and start_index == -1:
+                return
             else:
                 gli_datetime2, nxtwavfile, timestamp_end = find_off_values(data,end_index,time_name, audiodir_path)
                 csv_data.append(gli_datetime2)
