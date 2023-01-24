@@ -5,6 +5,7 @@ import datetime
 import os
 import glob
 import csv
+import dbdreader
 
 def find_wav_file(dir_path, gli_date, gli_time):
     # Use the glob.glob() method to get a list of file names in the directory
@@ -33,7 +34,7 @@ def find_wav_file(dir_path, gli_date, gli_time):
 
     return max_file
 
-def prepare_data(gli_data,sci_data,conditions): 
+def prepare_data_nc(gli_data,sci_data,conditions): 
 #returns dataset of flight and science data sorted by time with sensor columns filled
 
     #open flight and science data using xarray and convert to pandas dataframe
@@ -57,8 +58,83 @@ def prepare_data(gli_data,sci_data,conditions):
 
     #use bfill and ffill to fill in missing sensor values with the last value before the empty space
     for sensor in sensor_names:
-        datafull[sensor] = datafull[sensor].fillna(method='ffill')
-        datafull[sensor] = datafull[sensor].fillna(method='bfill')
+        datafull[sensor] = datafull[sensor].ffill().where(datafull[sensor].ffill() == datafull[sensor].bfill())
+
+    datafull = datafull.reset_index()
+
+    return datafull
+
+def prepare_data_ncplusdbd(gli_data,sci_data,conditions,new_sensor_names,data_files,cac_dir): 
+#returns dataset of flight and science data sorted by time with sensor columns filled
+
+    #open flight and science data using xarray and convert to pandas dataframe
+    df_gli = xr.open_dataset(gli_data)
+    df_sci = xr.open_dataset(sci_data)
+    data_gli = df_gli.to_dataframe()
+    data_sci = df_sci.to_dataframe()
+
+    #combine flight and science and sort them by the time variable
+    datafull = pd.concat([data_gli, data_sci], sort=True).sort_values(by='time')
+
+    datafull.reset_index()
+
+    for sensor_titles in new_sensor_names:
+        dbd=dbdreader.MultiDBD(pattern=data_files,cacheDir=cac_dir)    
+
+        tm,sensor_data=dbd.get(sensor_titles)
+        sensor_time_pair = np.column_stack((tm, sensor_data))
+        sensor_time_pair[:,0] = pd.to_datetime(sensor_time_pair[:,0], unit='s')
+        sensor_time_df = pd.DataFrame(sensor_time_pair,columns=['time',sensor_titles])
+        sensor_time_df['time'] = pd.to_datetime(sensor_time_df['time'])
+        datafull = datafull.merge(sensor_time_df, on='time', how='left')
+
+    #create empty list for sensor names
+    sensor_names = []
+
+    #parse conditions in cinditions input and append the sensor names to the list
+    for condition in conditions:
+        sensor, operator, value = condition.split(':')
+        sensor_names.append(sensor)
+
+    #use where bfill and ffill are equal to fill in values between groups (i.e. (1,nan,nan,1) becomes (1,1,1,1)) and then
+    #fill the rest with 0. This preserves the precision of the sensor.
+    for sensor in sensor_names:
+        datafull[sensor] = datafull[sensor].ffill().where(datafull[sensor].ffill() == datafull[sensor].bfill())
+
+    datafull = datafull.reset_index()
+
+    return datafull
+
+def prepare_data_dbd(conditions,new_sensor_names,data_files,cac_dir): 
+#returns dataset of flight and science data sorted by time with sensor columns filled
+    dbd=dbdreader.MultiDBD(pattern=data_files,cacheDir=cac_dir) 
+
+    tm,sensor_title=dbd.get(new_sensor_names[0])
+    sensor0_time_pair = np.column_stack((tm, sensor_title))
+    sensor0_time_pair[:,0] = pd.to_datetime(sensor0_time_pair[:,0], unit='s')
+    datafull = pd.DataFrame(sensor0_time_pair,columns=['time',new_sensor_names[0]])
+    datafull['time'] = pd.to_datetime(datafull['time'])
+
+    for sensor_titles in new_sensor_names[1:]:
+        dbd=dbdreader.MultiDBD(pattern=data_files,cacheDir=cac_dir)    
+        tm,sensor_data=dbd.get(sensor_titles)
+        sensor_time_pair = np.column_stack((tm, sensor_data))
+        sensor_time_pair[:,0] = pd.to_datetime(sensor_time_pair[:,0], unit='s')
+        sensor_time_df = pd.DataFrame(sensor_time_pair,columns=['time',sensor_titles])
+        sensor_time_df['time'] = pd.to_datetime(sensor_time_df['time'])
+        datafull = datafull.merge(sensor_time_df, on='time', how='left')
+
+    #create empty list for sensor names
+    sensor_names = []
+
+    #parse conditions in cinditions input and append the sensor names to the list
+    for condition in conditions:
+        sensor, operator, value = condition.split(':')
+        sensor_names.append(sensor)
+
+    #use bfill and ffill to fill in missing sensor values with the last value before the empty space
+    for sensor in sensor_names:
+        datafull[sensor] = datafull[sensor].ffill().where(datafull[sensor].ffill() == datafull[sensor].bfill())
 
     datafull = datafull.reset_index()
 
@@ -102,9 +178,14 @@ def find_indices(data, conditions, time_name, datetime_range=[0,0,0,0]):
     #convert to numpy
     mask = mask.values
 
-    #convert to int
-    mask = mask.astype(int)
+    for sensor in sensor_names:
+        mask = np.where(np.isnan(data[sensor]),np.nan,mask)
 
+    data['mask'] = mask
+    data['mask'] = data['mask'].ffill().where(data['mask'].ffill() == data['mask'].bfill())
+    data['mask'] = data['mask'].fillna(0)
+
+    mask = data['mask'].values
     #use np.diff within np.where to find indices where mask values changes from 1 to 0 for end or 0 to 1 for start
     start_indices = np.where(np.diff(mask) == 1)[0]
     end_indices = np.where(np.diff(mask) == -1)[0]
@@ -119,6 +200,8 @@ def find_indices(data, conditions, time_name, datetime_range=[0,0,0,0]):
         end_indices = [idx for idx in end_indices if data.loc[idx, time_name] > startdt and data.loc[idx, time_name] < enddt]
         
         #insert -1 if start or end index is before or after start or end time respectively
+
+        #if it was never met
 
         #if there are no start indices, insert -1 as start index
         if len(start_indices) == 0:
@@ -160,7 +243,7 @@ def find_on_values(data,start_index,time_name, audiodir_path):
 #finds when condition is met and timestamp in respective audio file
 
     #datetime from time column in data for start_index
-    gli_datetime = data.loc[start_index,time_name]
+    gli_datetime = data.loc[start_index+1,time_name]
     #seperates datetime into date and time
     gli_date = int(gli_datetime.strftime('%Y%m%d'))
     gli_time = int(gli_datetime.strftime('%H%M%S'))
