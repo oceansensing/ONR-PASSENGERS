@@ -1,10 +1,14 @@
 How to use processaudio.py
 
-This python script requires processed netcdf form data, conditions to be met, the time variable to be used ('time') is recommended,
+This python script calls a series of functions which allows the user to input glider data and passive acoustic audio data from a Loggerhead LS1/LS2 board in order to produce a text and csv file of audio files and timestamps during which a condition of glider variables is met.
+
+This script requires processed netcdf form data or raw ebd,dbd, and cache files, conditions to be met, the time variable to be used ('time') is recommended,
 an optional datetime range, and pathing information in order to return a .txt and .csv file with every time the condition is met, 
 then unmet, along with the corresponding audio file and timestamp.
 
-An example processing script is given in the "example" directory
+The script can be used with only netcdf data, it can process extra dbd/ebd variables alongside, or process only specified dbd/ebd variables
+
+An example processing script for all 3 cases is given in the "example" directory
 
 Step 1:
 Install dependencies
@@ -20,35 +24,45 @@ Activate the environment with
 
 "conda activate glideraudio"
 
+If you wish to process variables from dbd/ebd files, you also need the dbdreader package found here: https://github.com/smerckel/dbdreader
+
 
 Step 2:
 Adjust script to required inputs
 
 Within processaudio.py, the following variables represent:
 
-a. gli_data is the path to the netcdf file of flight data of the glider (ensure the pathing format is correct for your OS)
-b. sci_data is the path to the netcdf file of science data of the (ensure the pathing format is correct for your OS)
+a) gli_data is the path to the netcdf file of flight data of the glider (ensure the pathing format is correct for your OS)
 
-c. conditions is an array of string specifying which parameters you'd like to retrieve the audio for. Enter each condition in the
+b) sci_data is the path to the netcdf file of science data of the (ensure the pathing format is correct for your OS)
+
+c) conditions is an array of string specifying which parameters you'd like to retrieve the audio for. Enter each condition in the
 following format "variable_name:conditional_operator:value"
 
 Ex. ['sci_water_temp:>:20','sci_water_temp:<:30']
 
-d. time_name is the variable name for the time variable you'd like to use ('time' is recommended)
+d) time_name is the variable name for the time variable you'd like to use ('time' is recommended)
 
-e. outdir_path is the path to where you would like the output text and csv file to go 
+e) outdir_path is the path to where you would like the output text and csv file to go 
 
-f. file_name is what you would like to name your output text and csv files WITHOUT the extension
+f) file_name is what you would like to name your output text and csv files WITHOUT the extension
 
-g. audiodir_path is the path to the folder containing the raw loggerhead .wav files
+g) audiodir_path is the path to the folder containing the raw loggerhead .wav files
 
-h. datetime_range is an optional range of the datetimes analyzed for the conditions. If the full dataset is required, either
+h) datetime_range is an optional range of the datetimes analyzed for the conditions. If the full dataset is required, either
 don't use the datetime_range argument in the function call or enter ['0','0','0','0,] for the datetime_range.
 
 The datetime range format is as follows ['start_date YYYYMMDD','start_time HHMMSS','end_date YYYYMMDD','end_time HHMMSS']
 
 Ex. ['20221105','205000','20221108','221300'] In this example, the function will look for audio between November 5, 2022 20:50:00 UTC
 and November 8 2022, 22:13:00 UTC
+
+i) new_desired_sensors is an array of strings of the variables to be processed from the dbd/ebd files. All variables within the conditions variable must be 
+accounted for in this input unless present in the netcdf.
+
+j) dbd_ebd_dir is a pathname to all ebd and dbd files for the deployment
+
+l) cache_dir is a pathname to a directory containing all cache files for the glider
 
 Ensure that every variable is a string (has '' around it) except for conditions and datetime_range, which should be
 arrays where every item within the array is a string.
@@ -61,7 +75,7 @@ Ensure that processaudio.py is in the same directory as findaudioparams.py
 
 Open a terminal, navigate to the directory containing processaudio.py and findaudioparams.py, enter
 
-"python processaudio.py"
+"python processaudio.py" (or what you have your processing script named as)
 
 The terminal should read the condition met instance it is working on. It will read done when finished and show where the text and csv
 output files are. 
