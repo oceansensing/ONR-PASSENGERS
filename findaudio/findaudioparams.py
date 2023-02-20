@@ -83,11 +83,15 @@ def prepare_data_ncplusdbd(gli_data,sci_data,conditions,new_sensor_names,data_fi
 
         tm,sensor_data=dbd.get(sensor_titles)
         sensor_time_pair = np.column_stack((tm, sensor_data))
+        mask = np.logical_or(sensor_time_pair[:, 0] < tm[0], sensor_time_pair[:, 0] > tm[-1])
+        sensor_time_pair = sensor_time_pair[~mask]
         sensor_time_pair[:,0] = pd.to_datetime(sensor_time_pair[:,0], unit='s')
         sensor_time_df = pd.DataFrame(sensor_time_pair,columns=['time',sensor_titles])
         sensor_time_df['time'] = pd.to_datetime(sensor_time_df['time'])
-        datafull = datafull.merge(sensor_time_df, on='time', how='left')
+        datafull = datafull.merge(sensor_time_df, on='time', how='outer').sort_values(by='time')
 
+    datafull.reset_index(drop=True,inplace=True) #reset indices
+    
     #create empty list for sensor names
     sensor_names = []
 
@@ -101,7 +105,7 @@ def prepare_data_ncplusdbd(gli_data,sci_data,conditions,new_sensor_names,data_fi
     for sensor in sensor_names:
         datafull[sensor] = datafull[sensor].ffill().where(datafull[sensor].ffill() == datafull[sensor].bfill())
 
-    datafull = datafull.reset_index()
+    datafull = datafull.reset_index(drop=True)
 
     return datafull
 
@@ -111,6 +115,8 @@ def prepare_data_dbd(conditions,new_sensor_names,data_files,cac_dir):
 
     tm,sensor_title=dbd.get(new_sensor_names[0])
     sensor0_time_pair = np.column_stack((tm, sensor_title))
+    mask = np.logical_or(sensor0_time_pair[:, 0] < tm[0], sensor0_time_pair[:, 0] > tm[-1])
+    sensor0_time_pair = sensor0_time_pair[~mask]
     sensor0_time_pair[:,0] = pd.to_datetime(sensor0_time_pair[:,0], unit='s')
     datafull = pd.DataFrame(sensor0_time_pair,columns=['time',new_sensor_names[0]])
     datafull['time'] = pd.to_datetime(datafull['time'])
@@ -119,10 +125,14 @@ def prepare_data_dbd(conditions,new_sensor_names,data_files,cac_dir):
         dbd=dbdreader.MultiDBD(pattern=data_files,cacheDir=cac_dir)    
         tm,sensor_data=dbd.get(sensor_titles)
         sensor_time_pair = np.column_stack((tm, sensor_data))
+        mask = np.logical_or(sensor_time_pair[:, 0] < tm[0], sensor_time_pair[:, 0] > tm[-1])
+        sensor_time_pair = sensor_time_pair[~mask]
         sensor_time_pair[:,0] = pd.to_datetime(sensor_time_pair[:,0], unit='s')
         sensor_time_df = pd.DataFrame(sensor_time_pair,columns=['time',sensor_titles])
         sensor_time_df['time'] = pd.to_datetime(sensor_time_df['time'])
-        datafull = datafull.merge(sensor_time_df, on='time', how='left')
+        datafull = datafull.merge(sensor_time_df, on='time', how='outer').sort_values(by='time')
+
+    datafull.reset_index(drop=True,inplace=True) #reset indices
 
     #create empty list for sensor names
     sensor_names = []
@@ -136,7 +146,7 @@ def prepare_data_dbd(conditions,new_sensor_names,data_files,cac_dir):
     for sensor in sensor_names:
         datafull[sensor] = datafull[sensor].ffill().where(datafull[sensor].ffill() == datafull[sensor].bfill())
 
-    datafull = datafull.reset_index()
+    datafull = datafull.reset_index(drop=True)
 
     return datafull
 
